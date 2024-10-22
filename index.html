@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiple Choice Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        .question-container {
+            margin: 20px;
+        }
+        .question-image {
+            display: block;
+            margin: 10px 0;
+            max-width: 450px;
+        }
+        .choices {
+            margin: 10px 0;
+        }
+        .choice-label {
+            display: flex;
+            align-items: center; /* Vertically centers the content */
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .circle-number {
+            font-weight: bold;
+            font-size: 18px;
+            margin-right: 5px;
+            color: black;
+        }
+        .selected {
+            color: red;
+        }
+        .correct {
+            color: green;
+        }
+        .wrong {
+            color: black;
+        }
+        .total-score {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .result-mark {
+            font-size: 18px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .correct-mark {
+            font-size: 17px;
+            color: rgb(90, 11, 239);
+        }
+        .wrong-mark {
+            font-size: 17px;
+            color: red;
+        }
+        .hint-button {
+            font-weight: bolder;
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #122b90;
+            color: white;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+
+        .link-button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #be3702;
+            color: rgb(255, 255, 255);
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            border-radius: 13px;
+        }
+
+        .hint-image {
+            display: block;
+            margin: 10px 0;
+            max-width: 450px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="quiz-container">
+    <!-- Questions will be dynamically added here -->
+</div>
+
+<button onclick="submitQuiz()">Submit Quiz</button>
+<p id="total-score" class="total-score"></p>
+
+<script>
+    let questions = [];
+    let selectedChoices = [];
+    let correctAnswers = [];
+    let score = 0;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        fetch('problems.txt')
+            .then(response => response.text())
+            .then(text => {
+                const problems = text.split('\n');  // Each line is a new problem
+                const quizContainer = document.getElementById('quiz-container');
+
+                problems.forEach((problem, index) => {
+                    MathJax.typesetPromise();
+                    const problemData = problem.split(' | ');
+                    const questionText = problemData[0].trim();          // Question text
+                    const imagePath = problemData[1].trim();             // Image path
+                    const link = problemData[2].trim();           // Link
+                    const choices = problemData.slice(3, 8);      // Choices
+                    const correctAnswer = parseInt(problemData[8].trim());  // Correct Answer
+                    const hintImages = problemData.slice(9);      // Hints
+
+                    correctAnswers.push(correctAnswer);
+
+                    const questionDiv = document.createElement('div');
+                    questionDiv.className = "question-container";
+                    questionDiv.innerHTML = ` <button class="hint-button" onclick="showHint(${index})">KAFKA MATH Hints</button>
+                        <button id="link-button-${index}" class="link-button hidden">YouTube</button>
+                        <p>${questionText}</p>
+                        <img src="${imagePath}" alt="Question Image" class="question-image">
+                       
+                        <div id="hints-container-${index}"></div>
+                    `;
+
+                    // Show the link button if a valid URL is provided
+                    const linkButton = questionDiv.querySelector(`#link-button-${index}`);
+                    if (link.startsWith('http')) {
+                        linkButton.classList.remove('hidden');
+                        linkButton.onclick = () => window.open(link, '_blank');  // Open link in new tab
+                    }
+
+                    const choicesDiv = document.createElement('div');
+                    choicesDiv.className = "choices";
+
+                    choices.forEach((choice, choiceIndex) => {
+                        const choiceNumber = choiceIndex +1;
+                        const circleNumber = getCircleNumber(choiceNumber);
+                        choicesDiv.innerHTML += `
+                            <label class="choice-label" onclick="selectChoice(${index}, ${choiceNumber})">
+                                <span id="circle${index}-${choiceNumber}" class="circle-number">${circleNumber}</span><span>${choice}</span>
+                                <span id="result${index}-${choiceNumber}" class="result-mark"></span>
+                            </label><br>
+                        `;
+                    });
+
+                    questionDiv.appendChild(choicesDiv);
+                    quizContainer.appendChild(questionDiv);
+
+                    selectedChoices.push(null);
+                    questions.push({ hintImages, hintClickCount: 0 });  // Start count at 0
+                });
+            });
+    });
+
+    function getCircleNumber(number) {
+        const circleNumbers = ['➀', '➁', '➂', '➃', '➄'];
+        return circleNumbers[number-1];
+    }
+
+    function selectChoice(questionIndex, choiceNumber) {
+        for (let i = 1; i <= 5; i++) {
+            document.getElementById(`circle${questionIndex}-${i}`).classList.remove('selected');
+        }
+        document.getElementById(`circle${questionIndex}-${choiceNumber}`).classList.add('selected');
+        selectedChoices[questionIndex] = choiceNumber;
+    }
+
+    function showHint(questionIndex) {
+        const question = questions[questionIndex];
+        const hintsContainer = document.getElementById(`hints-container-${questionIndex}`);
+        
+        // Ensure the first hint is shown first
+        if (question.hintClickCount < question.hintImages.length) {
+            const newHintImage = document.createElement('img');
+            newHintImage.src = question.hintImages[question.hintClickCount];  // Correctly access the hint images
+            newHintImage.classList.add('hint-image');
+            hintsContainer.appendChild(newHintImage);  // Append the new hint image to the container
+            question.hintClickCount++;  // Increase the count after showing the hint
+        }
+    }
+
+    function submitQuiz() {
+        score = 0;
+        selectedChoices.forEach((choice, index) => {
+            if (choice === correctAnswers[index]) {
+                score+=1;
+                document.getElementById(`result${index}-${choice}`).innerText = "O";
+                document.getElementById(`result${index}-${choice}`).classList.add('correct-mark');
+            } else {
+                document.getElementById(`result${index}-${choice}`).innerText = "X";
+                document.getElementById(`result${index}-${choice}`).classList.add('wrong-mark');
+                const correctChoice = correctAnswers[index];
+                document.getElementById(`result${index}-${correctChoice}`).innerText = "O";
+                document.getElementById(`result${index}-${correctChoice}`).classList.add('correct-mark');
+            }
+        });
+        document.getElementById('total-score').innerText = `Your Correct Answer is ${score} problems. `;
+    }
+</script>
+
+</body>
+</html>
